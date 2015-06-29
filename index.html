@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Login</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script src="js/util/jquery.min.js"></script>
+        <script src="js/util/cookie.js"></script>
+        <script src="js/app/app.js"></script>
+        <script src="js/app/constant.js"></script>
+
+        <link type="text/css" rel="stylesheet" href="css/style.css" />
+        <!--        <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js"></script>-->
+        <script type="text/javascript" >
+
+            var yowzaConn = getYowzaConn();
+            var chattingWithUser;
+            var friendListDisplayed = false;
+
+            yowzaConn.addCustomHandler(MSG_TYPES.MSG_DATA, processIncomingDirectMsg);
+            yowzaConn.addCustomHandler(MSG_TYPES.MSG_PRIV, processIncomingCustomDirectMsg);
+
+            yowzaConn.check_ws(true);
+            
+            var friendslistResponse;
+            
+            var processIncomingDirectMsg = function (jsonReceived, jsonSent, reqStatus) {
+                console.log(jsonReceived);
+                console.log(jsonSent);
+
+                if (jsonReceived.user == chattingWithUser.user) {
+                    $("#usermsg").attr("value", "");
+                    var item = "<span>(" + formatDate(new Date(jsonReceived.ts)) + ") " +
+                            chattingWithUser.firstName + " : " +
+                            jsonReceived.data.msg + "</span></br>";
+                    document.querySelector('#chatbox').innerHTML += item;
+                }
+                console.log(jsonReceived);
+                console.log(jsonSent);
+            };
+
+            var processIncomingCustomDirectMsg = function (jsonReceived, jsonSent, reqStatus) {
+                console.log(jsonReceived);
+                console.log(jsonSent);
+
+                if(jsonReceived.user == chattingWithUser.user){
+                    var action = "";
+                    switch (jsonReceived.subtype) {
+                        case SUB_TYPE.TYPING:
+                            action=" is typing...";
+                            break;
+                        default :
+                            action = "";
+                            break;
+                    }
+
+                    var item = "<span>" +
+                            chattingWithUser.firstName + " : " +
+                            action + "</span></br>";
+                    document.querySelector('#chatbox').innerHTML += item;
+                }
+           
+            };
+
+
+
+
+
+
+            $(document).ready(function () {
+                console.log("page loadded");
+                $("#wrapperlogin").show();
+                $("#loggedin").hide();
+
+                $("#submit").click(function (e) {
+                    var uid = $("#uid").val();
+                    var pwd = $("#pwd").val();
+
+                    var result = isValidForm();
+                    if (result === "success") {
+                        sendLoginRequestd(uid, pwd);
+                    } else {
+                        alert(result);
+                    }
+                });
+
+
+                $("#exit").click(function () {
+                    var exit = confirm("Are you sure you want to logout?");
+                    if (exit == true) {
+                        yowzaConn.logout(function () {
+                            $("#wrapperlogin").show();
+                            $("#loggedin").hide();
+                        });
+                    }
+                });
+
+                $("#view_friends").click(function () {
+                    showFriendsList();
+                });
+
+                $("#submitmsg").click(function () {
+                    var clientmsg = $("#usermsg").val();
+//                    yowzaConn.sendTextMsg(chattingWithUser.user, null, clientmsg, function(json, jSent, reqStatus){
+//                        if(reqStatus == QUERY_STATUS.HAVE_RESPONSE) {
+//                            console.log("sent :" + clientmsg);
+//                            console.log(json);
+//                            $("#usermsg").attr("value", "");
+//                            var item = "<span>(" + formatDate(new Date()) + ") Me : " + clientmsg + "</span></br>";
+//                            document.querySelector('#chatbox').innerHTML += item;
+//                        }
+//                    });
+                    sendChatMsg(chattingWithUser.user, null, clientmsg)
+                });
+
+                var delay = (function () {
+                    var timer = 0;
+                    return function (callback, ms) {
+                        clearTimeout(timer);
+                        timer = setTimeout(callback, ms);
+                    };
+                })();
+
+                $('input#usermsg').on('keyup', function (e) {
+                    var clientmsg = $('#usermsg').val();
+                    var len = clientmsg.length;
+
+                    if (e.which == 13 && len > 0) {
+                        e.preventDefault();
+                        sendChatMsg(chattingWithUser.user, null, clientmsg)
+                    }
+                    delay(function () {
+                        if (len > 5)
+                            yowzaConn.sendTypingStarted(chattingWithUser.user);
+                    }, 1000);
+                });
+
+                /*
+                 $('#usermsg').on('keyup', function(e) {
+                 var val = $('#usermsg').val();
+                 if (e.which == 13) {
+                 e.preventDefault();
+                 }
+                 if(val.length>5){
+                 
+                 }
+                 
+                 });
+                 */
+                
+                /*
+                $("#usermsg").click(function () {
+                    
+                });
+                */
+            });
+
+            function sendChatMsg(user, group, clientmsg) {
+                yowzaConn.sendTextMsg(user, group, clientmsg, function (json, jSent, reqStatus) {
+                    if (reqStatus == QUERY_STATUS.HAVE_RESPONSE) {
+                        console.log("sent :" + clientmsg);
+                        console.log(json);
+                        $("#usermsg").attr("value", "");
+                        var item = "<span>(" + formatDate(new Date()) + ") Me : " + clientmsg + "</span></br>";
+                        document.querySelector('#chatbox').innerHTML += item;
+                    }
+                });
+//                yowzaConn.sendTextMsg(chattingWithUser.user, null, clientmsg, function(json, jSent, reqStatus){
+//                    if(reqStatus == QUERY_STATUS.HAVE_RESPONSE) {
+//                        console.log("sent :" + clientmsg);
+//                        console.log(json);
+//                        $("#usermsg").attr("value", "");
+//                        var item = "<span>(" + formatDate(new Date()) + ") Me : " + clientmsg + "</span></br>";
+//                        document.querySelector('#chatbox').innerHTML += item;
+//                    }
+//                });
+            }
+
+            function populateFriends(friendslist) {
+                var item;
+                for (var i = 0; i < friendslist.length; i++) {
+                    var obj = friendslist[i];
+                    item = "<li><a onclick=\"return chatWith(" + i + ");\"><div class=\"friend_name\">" +
+                            obj.firstName + " * " + obj.lastName + " * " + obj.user
+                            + "</div></a></li>";
+                    document.querySelector('#friendslist').innerHTML += item;
+                }
+            }
+
+            function chatWith(index) {
+                console.log("chat with" + index);
+
+                //need to delete this line
+                chattingWithUser = friendslistResponse.cntcs[index];
+                document.querySelector('#chattingwithuser').innerHTML = " - " + chattingWithUser.firstName;
+
+//                var status =
+//                        yowzaConn.getFriends(false, function(json, jSent, reqStatus){
+//                    chattingWithUser = json.cntcs[index];
+//                    console.log(chattingWithUser);
+//                    //$("#chat").show();
+//                    //$("#friends").hide();
+//                    document.querySelector('#chattingwithuser').innerHTML = " - " + chattingWithUser.firstName;
+//                    
+//                });
+
+                console.log(status);
+            }
+            ;
+
+            function showFriendsList() {
+
+                //need to delete this line
+                //populateFriends(json.cntcs);
+
+                //$("#chat").hide();
+                //$("#friends").show();
+
+                 if(!friendListDisplayed){
+                 var status = yowzaConn.getFriends(false, function(json, jSent, queryResult){
+                     friendslistResponse=json;
+                 populateFriends(json.cntcs);
+                 });
+                 
+                 if (status == QUERY_STATUS.ERROR_NO_RESPONSE){
+                 yowzaConn.getFriends(true, function(json, jSent, queryResult){
+                     friendslistResponse=json;
+                 populateFriends(json.cntcs);
+                 });
+                 }
+                 
+                 friendListDisplayed = !friendListDisplayed;
+                 }
+            }
+            ;
+
+            function isValidForm() {
+                var uid = $("#uid").val();
+                var pwd = $("#pwd").val();
+                if (uid === null || uid === "") {
+                    return "Username is required";
+                }
+                if (pwd === null || pwd === "") {
+                    return "Password is required";
+                }
+
+                return "success";
+            }
+
+            function sendLoginRequestd(uid, pwd) {
+
+                var uid = $("#uid").val();
+                var pwd = $("#pwd").val();
+
+                yowzaConn.loginByUserName(uid, pwd, function(){
+                    $("#wrapperlogin").hide();
+                    $("#loggedin").show();
+                  document.querySelector('#username').innerHTML= uid;
+                    
+                    showFriendsList();
+                });
+
+//                if (uid == "user4@stepathlon.com" && pwd == "abc") {
+//                    $("#wrapperlogin").hide();
+//                    $("#loggedin").show();
+//                    showFriendsList();
+//                }
+
+            }
+
+            function formatDate(d) {
+
+                var dd = d.getDate();
+                if (dd < 10)
+                    dd = '0' + dd
+
+                var mm = d.getMonth() + 1;
+                if (mm < 10)
+                    mm = '0' + mm
+
+                var yy = d.getFullYear();
+                if (yy < 10)
+                    yy = '0' + yy
+
+                return dd + '-' + mm + '-' + yy + ' : ' + d.getHours() + ':' + d.getMinutes() + ':' + d.getSeconds();
+            }
+
+        </script>        
+        <style>
+            #friendsdiv{
+                height: 100%;            
+                float:left;
+                width:30%;
+                border:1px solid #ACD8F0;
+            }
+            #chatdiv{
+                height: 100%;    
+                width:60%;
+                float:right;
+            }
+            .friendslist{
+
+            }
+            ul
+            {
+                list-style-type: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="wrapperlogin">
+            <h1>Login</h1>
+
+            <form method="post" action="#">
+                <table>
+                    <tr>
+                        <td>Username</td>
+                        <td><input name="uid" value="user4@stepathlon.com" type="text" id="uid"/></td>
+                    </tr>
+                    <tr>
+                        <td>Password</td>
+                        <td><input name="pwd" value="abc" type="password" id="pwd"/></td>
+                    </tr>
+                    <tr>
+                        <td>&nbsp;</td>
+                        <td><input name="submit" type="button" value ="Login" id="submit"/></td>
+                    </tr>
+                </table>
+            </form>
+        </div>
+        <div id="loggedin">
+            <div id="menu">
+                <p class="welcome">Welcome, <span id="username"></span><b></b></p>
+                <p class="logout"><a id="exit" href="#">Logout</a></p>
+                <div style="clear:both"></div>
+            </div>
+
+            <!--            <div id="friends">
+                            <input name="id" id="id" type="hidden" value=""/>
+                            <input name="token" id="token" type="hidden" value=""/>
+                            <div class="component friend_component">
+                                <div class="component_content">
+                                    <ul class="friends" id="friendslist">
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>-->
+
+            <div id="chat">
+                <!--<p class="logout"><a id="view_friends" href="#">View Friends</a></p>-->
+
+                <div id="friendsdiv">
+                    <h3>Friends List</h3>
+                    <div>
+                        <div>
+                            <ul id="friendslist">
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div id="chatdiv">
+                    <p>Chatting with, <span id="chattingwithuser"></span><b></b></p>
+                    <div id="chatbox"></div>
+                    <form name="message" action="">
+                        <input name="usermsg" type="text" id="usermsg" size="63" />
+                        <input name="submitmsg" type="button"  id="submitmsg" value="Send" />
+                    </form>
+                </div>
+            </div>
+
+        </div>
+
+    </body>
+</html>

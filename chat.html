@@ -1,0 +1,55 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <title>Chat - Customer Module</title>
+        <link type="text/css" rel="stylesheet" href="css/style.css" />
+    </head>
+    <body>
+        <div id="wrapper">
+            <div id="menu">
+                <p class="welcome">Welcome, <b></b></p>
+                <p class="logout"><a id="exit" href="#">Exit Chat</a></p>
+                <div style="clear:both"></div>
+            </div>
+
+            <div id="chatbox"></div>
+
+
+        </div>
+
+        <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3/jquery.min.js"></script>
+        <script type="text/javascript">
+            // jQuery Document
+            $("#exit").click(function () {
+                var exit = confirm("Are you sure you want to end the session?");
+                if (exit == true) {
+                    window.location = 'friendslist.html';
+                }
+            })
+
+            $("#submitmsg").click(function () {
+                var clientmsg = $("#usermsg").val();
+                //$.post("post.php", {text: clientmsg});				
+                $("#usermsg").attr("value", "");
+                var item = "<span>(" + formatDate(new Date()) + ") Me : " + clientmsg + "</span></br>";
+                document.querySelector('#chatbox').innerHTML += item;
+            });
+            function formatDate(d) {
+
+                var dd = d.getDate();
+                if (dd < 10)
+                    dd = '0' + dd
+
+                var mm = d.getMonth() + 1;
+                if (mm < 10)
+                    mm = '0' + mm
+
+                var yy = d.getFullYear();
+                if (yy < 10)
+                    yy = '0' + yy
+
+                return dd + '-' + mm + '-' + yy + ' : ' +d.getHours() +':'+d.getMinutes()+':'+ d.getSeconds();
+            }
+        </script>
+    </body>
+</html>
